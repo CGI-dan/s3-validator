@@ -1,31 +1,29 @@
-SHELL := /bin/bash
+CXX := g++
+CXXFLAGS_MULTI := -std=c++17 -O3 -pthread
+CXXFLAGS_SINGLE := -std=c++17 -O2
 
-CXX ?= g++
-CXXFLAGS ?= -std=c++17 -O3 -DNDEBUG -flto
-LDFLAGS ?= -flto
+MULTI_SRC := crc64nvme_s3-multicore.cpp
+SINGLE_SRC := crc64nvme_s3-singlecore.cpp
 
-TARGET := crc64nvme_s3
-SRC := crc64nvme_s3.cpp
-OBJ := $(SRC:.cpp=.o)
-NPROC := $(shell command -v nproc >/dev/null 2>&1 && nproc || getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)
+BUILD_DIR := build
+MULTI_BIN := $(BUILD_DIR)/crc64nvme_s3_multi
+SINGLE_BIN := $(BUILD_DIR)/crc64nvme_s3
 
-.PHONY: all build build-fast test clean
+.PHONY: all clean test
 
-all: build
+all: $(MULTI_BIN) $(SINGLE_BIN)
 
-build:
-	@$(MAKE) --no-print-directory -j$(NPROC) $(TARGET)
+$(MULTI_BIN): $(MULTI_SRC)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS_MULTI) $< -o $@
 
-build-fast: build
+$(SINGLE_BIN): $(SINGLE_SRC)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS_SINGLE) $< -o $@
 
-$(TARGET): $(OBJ)
-	$(CXX) $(OBJ) $(LDFLAGS) -o $@
-
-%.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-test: build
-	./$(TARGET) --self-test
+test: all
+	./$(MULTI_BIN) --self-test
+	./$(SINGLE_BIN) --self-test
 
 clean:
-	rm -f $(TARGET) $(OBJ)
+	rm -rf $(BUILD_DIR)
